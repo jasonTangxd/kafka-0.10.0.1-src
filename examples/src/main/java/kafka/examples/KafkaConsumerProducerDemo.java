@@ -16,6 +16,10 @@
  */
 package kafka.examples;
 
+import kafka.examples.comsumer.Consumer;
+import kafka.examples.producer.Producer;
+import kafka.examples.properties.KafkaProperties;
+
 public class KafkaConsumerProducerDemo {
     public static void main(String[] args) {
         boolean isAsync = args.length == 0 || !args[0].trim().equalsIgnoreCase("sync");
