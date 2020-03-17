@@ -14,6 +14,7 @@ package org.apache.kafka.common;
 
 /**
  * Information about a Kafka node
+ * 集群中的一个节点，记录host ip port
  */
 public class Node {
 
