@@ -22,6 +22,9 @@ import org.apache.kafka.common.Cluster;
 
 /**
  * Partitioner Interface
+ *
+ * 默认实现 org.apache.kafka.clients.producer.internals.DefaultPartitioner
+ *
  */
 
 public interface Partitioner extends Configurable {

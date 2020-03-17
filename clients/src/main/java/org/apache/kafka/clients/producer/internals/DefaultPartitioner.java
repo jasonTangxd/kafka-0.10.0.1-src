@@ -35,6 +35,7 @@ import org.apache.kafka.common.utils.Utils;
  */
 public class DefaultPartitioner implements Partitioner {
 
+    // 初始化一个随机数，线程安全
     private final AtomicInteger counter = new AtomicInteger(new Random().nextInt());
 
     /**
@@ -66,10 +67,19 @@ public class DefaultPartitioner implements Partitioner {
      * @param cluster The current cluster metadata
      */
     public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
+
+        // 获取topic的分区信息
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
+
+        // 分区数
         int numPartitions = partitions.size();
+
+        // 消息没有key的情况
         if (keyBytes == null) {
+
+            // 递增counter
             int nextValue = counter.getAndIncrement();
+            // 选择availablePartitions
             List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
             if (availablePartitions.size() > 0) {
                 int part = DefaultPartitioner.toPositive(nextValue) % availablePartitions.size();
@@ -78,7 +88,10 @@ public class DefaultPartitioner implements Partitioner {
                 // no partitions are available, give a non-available partition
                 return DefaultPartitioner.toPositive(nextValue) % numPartitions;
             }
-        } else {
+        }
+
+        // 消息有key的情况
+        else {
             // hash the keyBytes to choose a partition
             return DefaultPartitioner.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
         }

@@ -20,6 +20,9 @@ import java.util.Map;
 
 /**
  * A Mix-in style interface for classes that are instantiated by reflection and need to take configuration parameters
+ *
+ * 设计Configurable接口的目的是统一反射后的初始化过程，对外提供统一的初始化接口
+ *
  */
 public interface Configurable {
 

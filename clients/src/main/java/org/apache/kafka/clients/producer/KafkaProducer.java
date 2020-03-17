@@ -751,8 +751,11 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
      * calls configured partitioner class to compute the partition.
      */
     private int partition(ProducerRecord<K, V> record, byte[] serializedKey, byte[] serializedValue, Cluster cluster) {
+
         Integer partition = record.partition();
+        // 制定了分区编号
         if (partition != null) {
+            // 获取topic的分区信息，进行编号校验
             List<PartitionInfo> partitions = cluster.partitionsForTopic(record.topic());
             int lastPartition = partitions.size() - 1;
             // they have given us a partition, use it
@@ -761,6 +764,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             }
             return partition;
         }
+
+        // 没有明确指定分区编号
+        // 则调用默认的DefaultPartitioner.partition进行分区
         return this.partitioner.partition(record.topic(), record.key(), serializedKey, record.value(), serializedValue,
                 cluster);
     }
