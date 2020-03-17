@@ -541,23 +541,37 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
      * @return The amount of time we waited in ms
      */
     private long waitOnMetadata(String topic, long maxWaitMs) throws InterruptedException {
+
         // add topic to metadata topic list if it is not there already.
+        // 1. 检测Meta中是否包含指定的topic, 不存在添加到metadata的topics集合中
         if (!this.metadata.containsTopic(topic))
             this.metadata.add(topic);
 
+        // 2. 获取到topic中的分区信息
         if (metadata.fetch().partitionsForTopic(topic) != null)
             return 0;
 
+        // 3. 如果没有获取到topic的分区信息
         long begin = time.milliseconds();
         long remainingWaitMs = maxWaitMs;
         while (metadata.fetch().partitionsForTopic(topic) == null) {
+
+            // 4. 没有分区信息则通过requestUpdate()设置needUpdate字段为true, 返回版本号
             log.trace("Requesting metadata update for topic {}.", topic);
             int version = metadata.requestUpdate();
+
+            // 5. 唤醒Sender线程，由Sender线程更新Metadata中保存的Kafka集群元数据
             sender.wakeup();
+
+            // 6. 主线程调用awaitUpdate()方法，等待Sender线程完成更新, 并阻塞等待元数据更新完毕
             metadata.awaitUpdate(version, remainingWaitMs);
             long elapsed = time.milliseconds() - begin;
+
+            // 7. 检测超时：如果等待超时，则抛出异常
             if (elapsed >= maxWaitMs)
                 throw new TimeoutException("Failed to update metadata after " + maxWaitMs + " ms.");
+
+            // 8. 检测权限
             if (metadata.fetch().unauthorizedTopics().contains(topic))
                 throw new TopicAuthorizationException(topic);
             remainingWaitMs = maxWaitMs - elapsed;
