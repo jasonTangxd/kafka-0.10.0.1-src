@@ -32,21 +32,29 @@ import org.slf4j.LoggerFactory;
  * 
  * Metadata is maintained for only a subset of topics, which can be added to over time. When we request metadata for a
  * topic we don't have any metadata for it will trigger a metadata update.
+ *
+ * Metadata 中封装了Cluster对象，并保存Cluster数据的最后更新时间，版本号，是否需要更新等
+ *
+ * Backoff 退避时间：为了防止更新操作过于频繁而造成网络阻塞和增加服务压力
+ *
+ * Metadata 主要操作下面的字段
+ *
+ * Metadata中的字段可以由主线程读，Sender线程更新，见awaitUpdate
  */
 public final class Metadata {
 
     private static final Logger log = LoggerFactory.getLogger(Metadata.class);
 
-    private final long refreshBackoffMs;
-    private final long metadataExpireMs;
-    private int version;
-    private long lastRefreshMs;
-    private long lastSuccessfulRefreshMs;
-    private Cluster cluster;
-    private boolean needUpdate;
-    private final Set<String> topics;
-    private final List<Listener> listeners;
-    private boolean needMetadataForAllTopics;
+    private final long refreshBackoffMs;        // 两次发出更新Cluster保存的元数据信息的最小时间差默认100ms
+    private final long metadataExpireMs;        // 每隔多久更新一次，默认300*1000 5分钟
+    private int version;                        // kafka集群元数据的版本号，每更新一次+1
+    private long lastRefreshMs;                 // 上一次更新元数据的时间戳
+    private long lastSuccessfulRefreshMs;       // 上一次成功更新元数据的时间戳
+    private Cluster cluster;                    // 保存Cluster数据的最后更新时间，版本号，是否需要更新等
+    private boolean needUpdate;                 // 标识是否强制更新cluster,这是触发sender线程更新集群元数据条件之一
+    private final Set<String> topics;           // 记录了已知的所有topic，cluster字段中记录了Topic最新的元数据
+    private final List<Listener> listeners;     // 监听metadata更新的监听器集合
+    private boolean needMetadataForAllTopics;   // 是否需要更新全部的topic的元数据
 
     /**
      * Create a metadata instance with reasonable defaults
@@ -101,9 +109,12 @@ public final class Metadata {
 
     /**
      * Request an update of the current cluster metadata info, return the current version before the update
+     *
+     * 修改needUpdate=true, 这样当Sender线程运行时会更新Metadata记录的集群元数据
+     * 返回version字段
      */
     public synchronized int requestUpdate() {
-        this.needUpdate = true;
+        this.needUpdate = true; // 强制更新cluster
         return this.version;
     }
 
@@ -117,6 +128,8 @@ public final class Metadata {
 
     /**
      * Wait for metadata update until the current version is larger than the last version we know of
+     *
+     * 主要通过版本号来判断元数据是否更新完成，未完成则阻塞等待
      */
     public synchronized void awaitUpdate(final int lastVersion, final long maxWaitMs) throws InterruptedException {
         if (maxWaitMs < 0) {
@@ -124,7 +137,12 @@ public final class Metadata {
         }
         long begin = System.currentTimeMillis();
         long remainingWaitMs = maxWaitMs;
+
+        // 比较版本号
         while (this.version <= lastVersion) {
+
+            // 从下面这行代码可以看出，主线程与Sender通过wait/notify同步
+            // 更新元数据的操作则交给Sender线程去完成
             if (remainingWaitMs != 0)
                 wait(remainingWaitMs);
             long elapsed = System.currentTimeMillis() - begin;
