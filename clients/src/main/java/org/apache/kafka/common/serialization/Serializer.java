@@ -17,6 +17,7 @@ import java.io.Closeable;
 import java.util.Map;
 
 /**
+ * Kafka 提供了基本的Serializer & Deserializer实现，也可以自定义实现
  *
  * @param <T> Type to be serialized from.
  *
@@ -26,12 +27,17 @@ public interface Serializer<T> extends Closeable {
 
     /**
      * Configure this class.
+     *
+     * 在执行程序序列化之前的配置，例如StringSerializer configure就选择合适的编码类型encoding UTF-8
+     *
      * @param configs configs in key/value pairs
      * @param isKey whether is for key or value
      */
     public void configure(Map<String, ?> configs, boolean isKey);
 
     /**
+     * 真正进行序列化的地方
+     *
      * @param topic topic associated with data
      * @param data typed data
      * @return serialized bytes
@@ -40,6 +46,9 @@ public interface Serializer<T> extends Closeable {
 
 
     /**
+     *
+     * 一般为空实现
+     *
      * Close this serializer.
      * This method has to be idempotent if the serializer is used in KafkaProducer because it might be called
      * multiple times.
